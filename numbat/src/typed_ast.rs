@@ -244,6 +244,7 @@ pub enum Expression {
     String(Span, Vec<StringPart>),
     MakeStruct(Span, Vec<(String, Expression)>, StructInfo),
     AccessStruct(Span, Span, Box<Expression>, String, StructInfo, Type),
+    Let(Span, Span, String, Box<Expression>, Box<Expression>, Type),
 }
 
 impl Expression {
@@ -276,6 +277,7 @@ impl Expression {
             Expression::String(span, _) => *span,
             Expression::MakeStruct(span, _, _) => *span,
             Expression::AccessStruct(_span, full_span, _, _, _, _) => *full_span,
+            Expression::Let(full_span, ..) => *full_span,
         }
     }
 }
@@ -338,6 +340,7 @@ impl Expression {
             Expression::String(_, _) => Type::String,
             Expression::MakeStruct(_, _, type_) => Type::Struct(type_.clone()),
             Expression::AccessStruct(_, _, _, _, _, type_) => type_.clone(),
+            Expression::Let(.., type_) => type_.clone(),
         }
     }
 }
@@ -557,7 +560,8 @@ fn with_parens(expr: &Expression) -> Markup {
         | Expression::Boolean(..)
         | Expression::String(..)
         | Expression::MakeStruct(..)
-        | Expression::AccessStruct(..) => expr.pretty_print(),
+        | Expression::AccessStruct(..)
+        | Expression::Let(..) => expr.pretty_print(),
         Expression::UnaryOperator { .. }
         | Expression::BinaryOperator { .. }
         | Expression::BinaryOperatorForDate { .. }
@@ -751,6 +755,19 @@ impl PrettyPrint for Expression {
             }
             AccessStruct(_, _, expr, attr, _, _) => {
                 expr.pretty_print() + m::operator(".") + m::identifier(attr)
+            }
+            Let(_, _, ident, value, expr, _) => {
+                m::keyword("let")
+                    + m::space()
+                    + m::identifier(ident)
+                    + m::space()
+                    + m::operator("=")
+                    + m::space()
+                    + value.pretty_print()
+                    + m::space()
+                    + m::operator("of")
+                    + m::space()
+                    + expr.pretty_print()
             }
         }
     }

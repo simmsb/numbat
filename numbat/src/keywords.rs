@@ -5,6 +5,7 @@ pub const KEYWORDS: &[&str] = &[
     "per ",
     "to ",
     "let ",
+    "of ",
     "fn ",
     "dimension ",
     "unit ",

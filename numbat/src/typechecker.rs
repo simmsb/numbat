@@ -450,6 +450,10 @@ fn evaluate_const_expr(expr: &typed_ast::Expression) -> Result<Exponent> {
         e @ typed_ast::Expression::AccessStruct(_, _, _, _, _, _) => Err(
             TypeCheckError::UnsupportedConstEvalExpression(e.full_span(), "access struct"),
         ),
+        e @ typed_ast::Expression::Let(..) => Err(TypeCheckError::UnsupportedConstEvalExpression(
+            e.full_span(),
+            "let",
+        )),
     }
 }
 
@@ -1253,6 +1257,27 @@ impl TypeChecker {
                     Box::new(expr_checked),
                     attr.to_owned(),
                     struct_info,
+                    ret_ty,
+                )
+            }
+            ast::Expression::Let(full_span, ident_span, ident, value, expr) => {
+                let value_checked = self.check_expression(value)?;
+                let value_type = value_checked.get_type();
+
+                let mut typechecker_fn = self.clone();
+                typechecker_fn
+                    .identifiers
+                    .insert(ident.clone(), (value_type, Some(*ident_span)));
+
+                let expr_checked = typechecker_fn.check_expression(expr)?;
+                let ret_ty = expr_checked.get_type();
+
+                Expression::Let(
+                    *full_span,
+                    *ident_span,
+                    ident.to_string(),
+                    Box::new(value_checked),
+                    Box::new(expr_checked),
                     ret_ty,
                 )
             }

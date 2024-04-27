@@ -91,6 +91,7 @@ pub enum TokenKind {
     Unit,
     Use,
     Struct,
+    Of,
 
     To,
 
@@ -373,6 +374,7 @@ impl Tokenizer {
             m.insert("Fn", TokenKind::CapitalFn);
             m.insert("NaN", TokenKind::NaN);
             m.insert("inf", TokenKind::Inf);
+            m.insert("of", TokenKind::Of);
             // Keep this list in sync with keywords::KEYWORDS!
             m
         });

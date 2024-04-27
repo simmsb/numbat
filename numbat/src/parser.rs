@@ -1205,6 +1205,33 @@ impl<'a> Parser<'a> {
         } else if let Some(_) = self.match_exact(TokenKind::Inf) {
             let span = self.last().unwrap().span;
             Ok(Expression::Scalar(span, Number::from_f64(f64::INFINITY)))
+        } else if self.match_exact(TokenKind::Let).is_some() {
+            let span = self.last().unwrap().span;
+            let ident = self.identifier()?;
+            let ident_span = self.last().unwrap().span;
+
+            if self.match_exact(TokenKind::Equal).is_none() {
+                todo!("Expect equal");
+            }
+
+            let value = self.expression()?;
+            self.match_exact(TokenKind::Newline);
+
+            if self.match_exact(TokenKind::Of).is_none() {
+                todo!("Expect in");
+            }
+
+            let expr = self.expression()?;
+
+            let full_span = span.extend(&self.last().unwrap().span);
+
+            Ok(Expression::Let(
+                full_span,
+                ident_span,
+                ident,
+                Box::new(value),
+                Box::new(expr),
+            ))
         } else if let Some(identifier) = self.match_exact(TokenKind::Identifier) {
             let span = self.last().unwrap().span;
 

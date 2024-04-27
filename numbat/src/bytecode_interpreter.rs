@@ -251,6 +251,22 @@ impl BytecodeInterpreter {
                 self.vm
                     .patch_u16_value_at(else_jump_offset, end_offset - (else_jump_offset + 2));
             }
+            Expression::Let(_, _, ident, value, expr, _) => {
+                self.compile_expression_with_simplify(value)?;
+
+                let current_depth = self.current_depth();
+                self.locals[current_depth].push(Local {
+                    identifier: ident.clone(),
+                    depth: current_depth,
+                    metadata: LocalMetadata::default(),
+                });
+
+                self.compile_expression_with_simplify(expr)?;
+
+                self.vm.add_op(Op::RotateTop);
+
+                self.locals[current_depth].pop();
+            }
         };
 
         Ok(())
@@ -271,7 +287,8 @@ impl BytecodeInterpreter {
             | Expression::String(..)
             | Expression::Condition(..)
             | Expression::MakeStruct(..)
-            | Expression::AccessStruct(..) => {}
+            | Expression::AccessStruct(..)
+            | Expression::Let(..) => {}
             Expression::BinaryOperator(..) | Expression::BinaryOperatorForDate(..) => {
                 self.vm.add_op(Op::FullSimplify);
             }

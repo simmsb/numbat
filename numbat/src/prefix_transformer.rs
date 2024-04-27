@@ -119,6 +119,13 @@ impl Transformer {
                     attr,
                 )
             }
+            Expression::Let(full_span, ident_span, ident, value, expr) => Expression::Let(
+                full_span,
+                ident_span,
+                ident,
+                Box::new(self.transform_expression(*value)),
+                Box::new(self.transform_expression(*expr)),
+            ),
         }
     }
 

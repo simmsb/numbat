@@ -111,6 +111,9 @@ pub enum Op {
 
     DestructureStruct,
 
+    /// used after exiting a let scope, pops two values off the stack, pushes first back on, discards second
+    RotateTop,
+
     /// Return from the current function
     Return,
 }
@@ -155,7 +158,8 @@ impl Op {
             | Op::LogicalNeg
             | Op::FullSimplify
             | Op::Return
-            | Op::GetLastResult => 0,
+            | Op::GetLastResult
+            | Op::RotateTop => 0,
         }
     }
 
@@ -199,6 +203,7 @@ impl Op {
             Op::Return => "Return",
             Op::BuildStruct => "BuildStruct",
             Op::DestructureStruct => "DestructureStruct",
+            Op::RotateTop => "RotateTop",
         }
     }
 }
@@ -1005,6 +1010,12 @@ impl Vm {
 
                     let value = content.remove(field_idx as usize);
                     self.stack.push(value);
+                }
+                Op::RotateTop => {
+                    let v = self.pop();
+                    self.pop();
+
+                    self.push(v);
                 }
             }
         }
