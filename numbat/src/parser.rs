@@ -1221,6 +1221,7 @@ impl<'a> Parser<'a> {
                 todo!("Expect in");
             }
 
+            self.match_exact(TokenKind::Newline);
             let expr = self.expression()?;
 
             let full_span = span.extend(&self.last().unwrap().span);
