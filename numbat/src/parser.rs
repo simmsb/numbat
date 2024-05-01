@@ -41,8 +41,9 @@
 //! unicode_power   ::=   call ( "⁻" ? ( "¹" | "²" | "³" | "⁴" | "⁵" | "⁶" | "⁷" | "⁸" | "⁹" ) ) ?
 //! call            ::=   primary ( ( "(" arguments? ")" ) | "." identifier ) *
 //! arguments       ::=   expression ( "," expression ) *
-//! primary         ::=   boolean | string | hex_number | oct_number | bin_number | number | identifier ( struct_expr ? ) | "(" expression ")" | struct_expr
+//! primary         ::=   boolean | string | hex_number | oct_number | bin_number | number | identifier ( struct_expr ? ) | "(" expression ")" | let_expr
 //! struct_expr     ::=   "{" ( identifier ":" type_annotation "," )* ( identifier ":" expression "," ? ) ? "}"
+//! let_expr        ::=   "let" identifier "=" expression "of" expression
 //!
 //! number          ::=   [0-9][0-9_]*("." ([0-9][0-9_]*)?)?([eE][+-]?[0-9][0-9_]*)?
 //! hex_number      ::=   "0x" [0-9a-fA-F]*
@@ -80,7 +81,7 @@ pub enum ParseErrorKind {
     #[error("{0}")]
     TokenizerError(TokenizerErrorKind),
 
-    #[error("Expected one of: number, identifier, parenthesized expression, struct construction")]
+    #[error("Expected one of: number, identifier, parenthesized expression, struct construction, let expression")]
     ExpectedPrimary,
 
     #[error("Missing closing parenthesis ')'")]
@@ -214,6 +215,9 @@ pub enum ParseErrorKind {
 
     #[error("Expected '{{' after struct name")]
     ExpectedLeftCurlyAfterStructName,
+
+    #[error("Expected 'of' after expression in let expression")]
+    ExpectedOfInLetExpression,
 }
 
 #[derive(Debug, Clone, Error)]
@@ -1210,15 +1214,27 @@ impl<'a> Parser<'a> {
             let ident = self.identifier()?;
             let ident_span = self.last().unwrap().span;
 
+            let type_annotation = if self.match_exact(TokenKind::Colon).is_some() {
+                Some(self.type_annotation()?)
+            } else {
+                None
+            };
+
             if self.match_exact(TokenKind::Equal).is_none() {
-                todo!("Expect equal");
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedEqualOrColonAfterLetIdentifier,
+                    span: self.peek().span,
+                });
             }
 
             let value = self.expression()?;
             self.match_exact(TokenKind::Newline);
 
             if self.match_exact(TokenKind::Of).is_none() {
-                todo!("Expect in");
+                return Err(ParseError {
+                    kind: ParseErrorKind::ExpectedOfInLetExpression,
+                    span: self.peek().span,
+                });
             }
 
             self.match_exact(TokenKind::Newline);
@@ -1230,6 +1246,7 @@ impl<'a> Parser<'a> {
                 full_span,
                 ident_span,
                 ident,
+                type_annotation.map(Box::new),
                 Box::new(value),
                 Box::new(expr),
             ))
@@ -2773,7 +2790,7 @@ mod tests {
         Successfully parsed:
         Expression(BinaryOperator { op: Add, lhs: Scalar(Span { start: SourceCodePositition { byte: 17, line: 2, position: 13 }, end: SourceCodePositition { byte: 18, line: 2, position: 14 }, code_source_id: 0 }, Number(2.0)), rhs: Scalar(Span { start: SourceCodePositition { byte: 21, line: 2, position: 17 }, end: SourceCodePositition { byte: 22, line: 2, position: 18 }, code_source_id: 0 }, Number(3.0)), span_op: Some(Span { start: SourceCodePositition { byte: 19, line: 2, position: 15 }, end: SourceCodePositition { byte: 20, line: 2, position: 16 }, code_source_id: 0 }) })
         Errors encountered:
-        Expected one of: number, identifier, parenthesized expression, struct construction - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 4, line: 1, position: 5 }, end: SourceCodePositition { byte: 5, line: 1, position: 6 }, code_source_id: 0 } }
+        Expected one of: number, identifier, parenthesized expression, struct construction, let expression - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 4, line: 1, position: 5 }, end: SourceCodePositition { byte: 5, line: 1, position: 6 }, code_source_id: 0 } }
         "###);
         // error in the middle of something
         assert_snapshot!(snap_parse(
@@ -2787,7 +2804,7 @@ mod tests {
         ProcedureCall(Span { start: SourceCodePositition { byte: 68, line: 4, position: 13 }, end: SourceCodePositition { byte: 77, line: 4, position: 22 }, code_source_id: 0 }, AssertEq, [BinaryOperator { op: Equal, lhs: BinaryOperator { op: Add, lhs: Identifier(Span { start: SourceCodePositition { byte: 78, line: 4, position: 23 }, end: SourceCodePositition { byte: 82, line: 4, position: 27 }, code_source_id: 0 }, "tamo"), rhs: Identifier(Span { start: SourceCodePositition { byte: 85, line: 4, position: 30 }, end: SourceCodePositition { byte: 89, line: 4, position: 34 }, code_source_id: 0 }, "cool"), span_op: Some(Span { start: SourceCodePositition { byte: 83, line: 4, position: 28 }, end: SourceCodePositition { byte: 84, line: 4, position: 29 }, code_source_id: 0 }) }, rhs: Scalar(Span { start: SourceCodePositition { byte: 93, line: 4, position: 38 }, end: SourceCodePositition { byte: 95, line: 4, position: 40 }, code_source_id: 0 }, Number(80.0)), span_op: Some(Span { start: SourceCodePositition { byte: 90, line: 4, position: 35 }, end: SourceCodePositition { byte: 92, line: 4, position: 37 }, code_source_id: 0 }) }])
         Expression(BinaryOperator { op: Mul, lhs: Scalar(Span { start: SourceCodePositition { byte: 109, line: 5, position: 13 }, end: SourceCodePositition { byte: 111, line: 5, position: 15 }, code_source_id: 0 }, Number(30.0)), rhs: Identifier(Span { start: SourceCodePositition { byte: 111, line: 5, position: 15 }, end: SourceCodePositition { byte: 112, line: 5, position: 16 }, code_source_id: 0 }, "m"), span_op: None })
         Errors encountered:
-        Expected one of: number, identifier, parenthesized expression, struct construction - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 50, line: 3, position: 24 }, end: SourceCodePositition { byte: 51, line: 3, position: 25 }, code_source_id: 0 } }
+        Expected one of: number, identifier, parenthesized expression, struct construction, let expression - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 50, line: 3, position: 24 }, end: SourceCodePositition { byte: 51, line: 3, position: 25 }, code_source_id: 0 } }
         "###);
         // error on a multiline let
         assert_snapshot!(snap_parse(
@@ -2797,7 +2814,7 @@ mod tests {
             "), @r###"
         Successfully parsed:
         Errors encountered:
-        Expected one of: number, identifier, parenthesized expression, struct construction - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 40, line: 3, position: 17 }, end: SourceCodePositition { byte: 41, line: 3, position: 18 }, code_source_id: 0 } }
+        Expected one of: number, identifier, parenthesized expression, struct construction, let expression - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 40, line: 3, position: 17 }, end: SourceCodePositition { byte: 41, line: 3, position: 18 }, code_source_id: 0 } }
         "###);
         // error on a multiline if
         assert_snapshot!(snap_parse(
@@ -2809,8 +2826,8 @@ mod tests {
         Successfully parsed:
         Errors encountered:
         Expected 'then' in if-then-else condition - ParseError { kind: ExpectedThen, span: Span { start: SourceCodePositition { byte: 18, line: 2, position: 18 }, end: SourceCodePositition { byte: 19, line: 2, position: 19 }, code_source_id: 0 } }
-        Expected one of: number, identifier, parenthesized expression, struct construction - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 36, line: 3, position: 17 }, end: SourceCodePositition { byte: 40, line: 3, position: 21 }, code_source_id: 0 } }
-        Expected one of: number, identifier, parenthesized expression, struct construction - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 63, line: 4, position: 17 }, end: SourceCodePositition { byte: 67, line: 4, position: 21 }, code_source_id: 0 } }
+        Expected one of: number, identifier, parenthesized expression, struct construction, let expression - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 36, line: 3, position: 17 }, end: SourceCodePositition { byte: 40, line: 3, position: 21 }, code_source_id: 0 } }
+        Expected one of: number, identifier, parenthesized expression, struct construction, let expression - ParseError { kind: ExpectedPrimary, span: Span { start: SourceCodePositition { byte: 63, line: 4, position: 17 }, end: SourceCodePositition { byte: 67, line: 4, position: 21 }, code_source_id: 0 } }
         "###);
 
         // #260

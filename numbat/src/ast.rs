@@ -92,7 +92,14 @@ pub enum Expression {
         fields: Vec<(Span, String, Expression)>,
     },
     AccessStruct(Span, Span, Box<Expression>, String),
-    Let(Span, Span, String, Box<Expression>, Box<Expression>),
+    Let(
+        Span,
+        Span,
+        String,
+        Option<Box<TypeAnnotation>>,
+        Box<Expression>,
+        Box<Expression>,
+    ),
 }
 
 impl Expression {
@@ -538,10 +545,11 @@ impl ReplaceSpans for Expression {
                 Box::new(expr.replace_spans()),
                 attr.clone(),
             ),
-            Expression::Let(_, _, ident, value, expr) => Expression::Let(
+            Expression::Let(_, _, ident, type_, value, expr) => Expression::Let(
                 Span::dummy(),
                 Span::dummy(),
                 ident.clone(),
+                type_.as_ref().map(|t| Box::new(t.replace_spans())),
                 Box::new(value.replace_spans()),
                 Box::new(expr.replace_spans()),
             ),

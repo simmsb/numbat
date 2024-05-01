@@ -1260,9 +1260,51 @@ impl TypeChecker {
                     ret_ty,
                 )
             }
-            ast::Expression::Let(full_span, ident_span, ident, value, expr) => {
+            ast::Expression::Let(full_span, ident_span, ident, type_annotation, value, expr) => {
                 let value_checked = self.check_expression(value)?;
                 let value_type = value_checked.get_type();
+
+                if let Some(ref type_annotation) = type_annotation {
+                    let type_annotated = self.type_from_annotation(type_annotation)?;
+
+                    match (&value_type, type_annotated) {
+                        (Type::Dimension(dexpr_deduced), Type::Dimension(dexpr_specified)) => {
+                            if dexpr_deduced != &dexpr_specified {
+                                return Err(TypeCheckError::IncompatibleDimensions(
+                                    IncompatibleDimensionsError {
+                                        span_operation: *ident_span,
+                                        operation: "let expression".into(),
+                                        span_expected: type_annotation.full_span(),
+                                        expected_name: "specified dimension",
+                                        expected_dimensions: self
+                                            .registry
+                                            .get_derived_entry_names_for(&dexpr_specified),
+                                        expected_type: dexpr_specified,
+                                        span_actual: expr.full_span(),
+                                        actual_name: "   actual dimension",
+                                        actual_name_for_fix: "right hand side expression",
+                                        actual_dimensions: self
+                                            .registry
+                                            .get_derived_entry_names_for(dexpr_deduced),
+                                        actual_type: dexpr_deduced.clone(),
+                                    },
+                                ));
+                            }
+                        }
+                        (deduced, annotated) => {
+                            if deduced != &annotated {
+                                return Err(TypeCheckError::IncompatibleTypesInAnnotation(
+                                    "let expression".into(),
+                                    *ident_span,
+                                    annotated,
+                                    type_annotation.full_span(),
+                                    deduced.clone(),
+                                    value_checked.full_span(),
+                                ));
+                            }
+                        }
+                    }
+                }
 
                 let mut typechecker_fn = self.clone();
                 typechecker_fn

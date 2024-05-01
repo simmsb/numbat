@@ -263,7 +263,7 @@ impl BytecodeInterpreter {
 
                 self.compile_expression_with_simplify(expr)?;
 
-                self.vm.add_op(Op::RotateTop);
+                self.vm.add_op(Op::ExitLet);
 
                 self.locals[current_depth].pop();
             }
