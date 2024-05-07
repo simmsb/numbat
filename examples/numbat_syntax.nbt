@@ -123,3 +123,9 @@ Foo {foo: 1A, bar: pi}              # constructing a struct
 let r: Foo = Foo {foo: 1A, bar: pi}
 
 r.foo                               # Field access is performed with `.field` notation
+
+# 11. Let expressions
+fn foo(x: Scalar) -> Scalar =
+  let y = x * 2 of
+  let z: Scalar = y + x of
+  x * y * z

@@ -14,3 +14,12 @@ you to catch potential errors early:
 let μ_water: DynamicViscosity = 1 mPa·s
 let Q: FlowRate = π × pipe_radius^4 × Δp / (8 μ_water × pipe_length)
 ```
+
+## Let expressions
+
+New constants can also be introduced in an expression, using the syntax `let <ident>(: <type>) = <value> of <expr>`:
+```nbt
+fn foo(x: Scalar) -> Scalar =
+  let y = x * 2
+  of y + x
+```

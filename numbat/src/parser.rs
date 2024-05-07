@@ -2782,6 +2782,24 @@ mod tests {
     }
 
     #[test]
+    fn let_expressions() {
+        parse_as_expression(
+            &[r#"(let foo: Scalar = 1
+  of foo + 1)"#],
+            Expression::Let(
+                Span::dummy(),
+                Span::dummy(),
+                "foo".to_owned(),
+                Some(Box::new(TypeAnnotation::TypeExpression(
+                    TypeExpression::TypeIdentifier(Span::dummy(), "Scalar".to_owned()),
+                ))),
+                Box::new(scalar!(1.0)),
+                Box::new(binop!(identifier!("foo"), Add, scalar!(1.0))),
+            ),
+        )
+    }
+
+    #[test]
     fn accumulate_errors() {
         // error on the last character of a line
         assert_snapshot!(snap_parse(
