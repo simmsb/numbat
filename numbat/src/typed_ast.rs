@@ -1191,13 +1191,13 @@ fn pretty_print_binop(op: &BinaryOperator, lhs: &Expression, rhs: &Expression) -
                 Expression::UnitIdentifier(_, prefix, _name, full_name, _type),
             ) => {
                 // Fuse multiplication of a scalar and a unit to a quantity
-                pretty_scalar(*s)
+                pretty_scalar(s.clone())
                     + m::space()
                     + m::unit(format_compact!("{}{}", prefix.as_string_long(), full_name))
             }
             (Expression::Scalar(_, s, _), Expression::Identifier(_, name, _type)) => {
                 // Fuse multiplication of a scalar and identifier
-                pretty_scalar(*s) + m::space() + m::identifier(name.to_compact_string())
+                pretty_scalar(s.clone()) + m::space() + m::identifier(name.to_compact_string())
             }
             _ => {
                 let add_parens_if_needed = |expr: &Expression| {
@@ -1271,10 +1271,10 @@ fn pretty_print_binop(op: &BinaryOperator, lhs: &Expression, rhs: &Expression) -
 
             add_parens_if_needed(lhs) + op.pretty_print() + add_parens_if_needed(rhs)
         }
-        BinaryOperator::Power if matches!(rhs, Expression::Scalar(_, n, _type) if n.to_f64() == 2.0) => {
+        BinaryOperator::Power if matches!(rhs, Expression::Scalar(_, n, _type) if n.clone().to_f64() == 2.0) => {
             with_parens(lhs) + m::operator("²")
         }
-        BinaryOperator::Power if matches!(rhs, Expression::Scalar(_, n, _type) if n.to_f64() == 3.0) => {
+        BinaryOperator::Power if matches!(rhs, Expression::Scalar(_, n, _type) if n.clone().to_f64() == 3.0) => {
             with_parens(lhs) + m::operator("³")
         }
         _ => with_parens(lhs) + op.pretty_print() + with_parens(rhs),
@@ -1286,7 +1286,7 @@ impl PrettyPrint for Expression<'_> {
         use Expression::*;
 
         match self {
-            Scalar(_, n, _) => pretty_scalar(*n),
+            Scalar(_, n, _) => pretty_scalar(n.clone()),
             Identifier(_, name, _type) => m::identifier(name.to_compact_string()),
             UnitIdentifier(_, prefix, _name, full_name, _type) => {
                 m::unit(format_compact!("{}{}", prefix.as_string_long(), full_name))

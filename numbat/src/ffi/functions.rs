@@ -128,7 +128,7 @@ fn error(mut args: Args) -> Result<Value> {
 fn value_of(mut args: Args) -> Result<Value> {
     let quantity = quantity_arg!(args);
 
-    return_scalar!(quantity.unsafe_value().to_f64())
+    return_scalar!(quantity.unsafe_value().clone())
 }
 
 fn has_unit(mut args: Args) -> Result<Value> {

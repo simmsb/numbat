@@ -10,6 +10,7 @@ use super::macros::*;
 use super::Args;
 use super::Result;
 use crate::datetime;
+use crate::number::Number;
 use crate::quantity::Quantity;
 use crate::value::FunctionReference;
 use crate::value::Value;
@@ -63,11 +64,11 @@ pub fn unixtime(mut args: Args) -> Result<Value> {
 
     let output = input.timestamp().as_second();
 
-    return_scalar!(output as f64)
+    return_scalar!(Number::new(output.into()))
 }
 
 pub fn from_unixtime(mut args: Args) -> Result<Value> {
-    let timestamp = quantity_arg!(args).unsafe_value().to_f64() as i64;
+    let timestamp = quantity_arg!(args).unsafe_value().clone().to_f64() as i64;
 
     let dt = Timestamp::from_second(timestamp)
         .map_err(|_| RuntimeError::DateTimeOutOfRange)?
@@ -82,7 +83,7 @@ fn calendar_add(
     to_span: fn(i64) -> std::result::Result<Span, jiff::Error>,
 ) -> Result<Value> {
     let dt = datetime_arg!(args);
-    let n = quantity_arg!(args).unsafe_value().to_f64();
+    let n = quantity_arg!(args).unsafe_value().clone().to_f64();
 
     if n.fract() != 0.0 {
         return Err(Box::new(RuntimeError::UserError(format!(

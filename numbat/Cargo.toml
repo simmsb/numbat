@@ -41,6 +41,8 @@ indexmap = "2.2.6"
 mendeleev = "0.8.1"
 plotly = "0.10.0"
 compact_str = { version = "0.8.0", features = ["serde"] }
+num = "0.4.3"
+realistic = { path = "../realistic" }
 
 [features]
 default = ["fetch-exchangerates"]

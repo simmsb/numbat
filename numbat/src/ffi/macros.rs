@@ -51,7 +51,7 @@ pub(crate) use return_scalar;
 
 macro_rules! return_quantity {
     ($value:expr, $unit:expr) => {
-        Ok(Value::Quantity(Quantity::new_f64($value, $unit)))
+        Ok(Value::Quantity(Quantity::new($value, $unit)))
     };
 }
 pub(crate) use return_quantity;

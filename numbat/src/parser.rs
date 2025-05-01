@@ -1447,7 +1447,10 @@ impl<'a> Parser<'a> {
             let num_string = num.lexeme.replace('_', "");
             Ok(Expression::Scalar(
                 self.last(tokens).unwrap().span,
-                Number::from_f64(num_string.parse::<f64>().unwrap()),
+                Number {
+                    value: num_string.parse::<realistic::Real>().unwrap(),
+                    poison: None,
+                },
             ))
         } else if let Some(hex_int) = self.match_exact(tokens, TokenKind::IntegerWithBase(16)) {
             let span = self.last(tokens).unwrap().span;

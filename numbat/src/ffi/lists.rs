@@ -1,5 +1,6 @@
 use super::macros::*;
 use super::{Args, Result};
+use crate::number::Number;
 use crate::quantity::Quantity;
 use crate::value::Value;
 use crate::RuntimeError;
@@ -7,7 +8,7 @@ use crate::RuntimeError;
 pub fn len(mut args: Args) -> Result<Value> {
     let list = list_arg!(args);
 
-    return_scalar!(list.len() as f64)
+    return_scalar!(Number::new((list.len() as u64).into()))
 }
 
 pub fn head(mut args: Args) -> Result<Value> {

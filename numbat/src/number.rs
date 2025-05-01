@@ -4,31 +4,115 @@ use compact_str::{format_compact, CompactString, ToCompactString};
 use num_traits::{Pow, ToPrimitive};
 use pretty_dtoa::FmtFloatConfig;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)] // TODO: we probably want to remove 'Copy' once we move to a more sophisticated numerical type
-pub struct Number(pub f64);
+#[derive(Debug, Clone, PartialEq)]
+pub struct Number {
+    pub value: realistic::Real,
+
+    // if we computed a bad value (nan, inf, etc) then store it as a float here
+    pub poison: Option<f64>,
+}
+
+impl PartialOrd for Number {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let lhs = self.value.clone().fold();
+        let rhs = other.value.clone().fold();
+        Some(lhs.compare_to(&rhs))
+    }
+}
 
 impl Eq for Number {}
 
 impl Number {
+    pub fn new(value: realistic::Real) -> Self {
+        Number {
+            value,
+            poison: None,
+        }
+    }
+
     pub fn from_f64(n: f64) -> Self {
-        Number(n)
+        let Ok(value) = n.try_into() else {
+            return Number {
+                value: realistic::Real::zero(),
+                poison: Some(n),
+            };
+        };
+
+        Number {
+            value,
+            poison: None,
+        }
+    }
+
+    pub fn poisoned(&self) -> bool {
+        self.poison.is_some()
     }
 
     pub fn to_f64(self) -> f64 {
-        let Number(n) = self;
-        n
+        if let Some(p) = self.poison {
+            return p;
+        }
+
+        self.value.into()
     }
 
-    pub fn pow(self, other: &Number) -> Self {
-        Number::from_f64(self.to_f64().pow(other.to_f64()))
+    pub fn pow(self, other: Number) -> Self {
+        if self.poisoned() || other.poisoned() {
+            return Number::from_f64(self.to_f64().pow(other.to_f64()));
+        }
+
+        if let Ok(value) = self.value.clone().pow(other.value.clone()) {
+            Number {
+                value,
+                poison: None,
+            }
+        } else {
+            Number {
+                value: realistic::Real::zero(),
+                poison: Some(self.to_f64().pow(other.to_f64())),
+            }
+        }
     }
 
     pub fn abs(self) -> Self {
-        Number::from_f64(self.to_f64().abs())
+        if let Some(p) = self.poison {
+            return Self::from_f64(p.abs());
+        }
+
+        if self.value.best_sign() == num::bigint::Sign::Minus {
+            Number {
+                value: -self.value,
+                poison: None,
+            }
+        } else {
+            self
+        }
+    }
+
+    pub fn rem_euclid(self, other: Number) -> Self {
+        if self.poisoned() || other.poisoned() {
+            return Number::from_f64(self.to_f64().rem_euclid(other.to_f64()));
+        }
+
+        if let Ok(value) = self.value.clone().rem_euclid(other.value.clone()) {
+            Number {
+                value,
+                poison: None,
+            }
+        } else {
+            Number {
+                value: realistic::Real::zero(),
+                poison: Some(self.to_f64().rem_euclid(other.to_f64())),
+            }
+        }
     }
 
     fn is_integer(self) -> bool {
-        self.0.trunc() == self.0
+        if let Some(x) = self.poison {
+            return x.trunc() == x;
+        }
+
+        self.value.is_integer()
     }
 
     /// Pretty prints with default options
@@ -40,7 +124,13 @@ impl Number {
     /// If options is None, default options will be used.
     /// If options is not None, float-based format handling is used and integer-based format handling is skipped.
     pub fn pretty_print_with_options(self, options: Option<FmtFloatConfig>) -> CompactString {
-        let number = self.0;
+        if let Some(num) = self.poison {
+            return pretty_print_with_options_f64(num, options);
+        }
+
+        let number = self.value;
+        let folded = number.clone().fold();
+        let msd = folded.iter_msd();
 
         // 64-bit floats can accurately represent integers up to 2^52 [1],
         // which is approximately 4.5 × 10^15.
@@ -48,11 +138,11 @@ impl Number {
         // [1] https://stackoverflow.com/a/43656339
         //
         // Skip special format handling for integers if options is not None.
-        if options.is_none() && self.is_integer() && self.0.abs() < 1e15 {
+        if options.is_none() && number.is_integer() && msd < 49 {
             use num_format::{CustomFormat, Grouping, ToFormattedString};
 
             let format = CustomFormat::builder()
-                .grouping(if self.0.abs() >= 100_000.0 {
+                .grouping(if msd >= 16 {
                     Grouping::Standard
                 } else {
                     Grouping::Posix
@@ -64,14 +154,10 @@ impl Number {
 
             // TODO: this is pretty wasteful. formatted numbers should be small enough
             // to fit in a CompactString without first going to the heap
-            number
-                .to_i64()
-                .expect("small enough integers are representable as i64")
+            (f64::from(number) as i64)
                 .to_formatted_string(&format)
                 .to_compact_string()
         } else {
-            use pretty_dtoa::dtoa;
-
             let config = if let Some(options) = options {
                 options
             } else {
@@ -83,7 +169,7 @@ impl Number {
                     .round()
             };
 
-            let formatted_number = dtoa(number, config);
+            let formatted_number = folded.format_with_options(config);
 
             if formatted_number.contains('.') && !formatted_number.contains('e') {
                 let formatted_number = if config.max_sig_digits.is_some() {
@@ -106,17 +192,128 @@ impl Number {
     }
 }
 
+pub fn pretty_print_with_options_f64(
+    number: f64,
+    options: Option<FmtFloatConfig>,
+) -> CompactString {
+    // 64-bit floats can accurately represent integers up to 2^52 [1],
+    // which is approximately 4.5 × 10^15.
+    //
+    // [1] https://stackoverflow.com/a/43656339
+    //
+    // Skip special format handling for integers if options is not None.
+    if options.is_none() && number.trunc() == number && number.abs() < 1e15 {
+        use num_format::{CustomFormat, Grouping, ToFormattedString};
+
+        let format = CustomFormat::builder()
+            .grouping(if number.abs() >= 100_000.0 {
+                Grouping::Standard
+            } else {
+                Grouping::Posix
+            })
+            .minus_sign("-")
+            .separator("_")
+            .build()
+            .unwrap();
+
+        // TODO: this is pretty wasteful. formatted numbers should be small enough
+        // to fit in a CompactString without first going to the heap
+        number
+            .to_i64()
+            .expect("small enough integers are representable as i64")
+            .to_formatted_string(&format)
+            .to_compact_string()
+    } else {
+        use pretty_dtoa::dtoa;
+
+        let config = if let Some(options) = options {
+            options
+        } else {
+            FmtFloatConfig::default()
+                .max_significant_digits(6)
+                .add_point_zero(false)
+                .lower_e_break(-6)
+                .upper_e_break(6)
+                .round()
+        };
+
+        let formatted_number = dtoa(number, config);
+
+        if formatted_number.contains('.') && !formatted_number.contains('e') {
+            let formatted_number = if config.max_sig_digits.is_some() {
+                formatted_number.trim_end_matches('0')
+            } else {
+                &formatted_number
+            };
+
+            if formatted_number.ends_with('.') {
+                format_compact!("{formatted_number}0")
+            } else {
+                formatted_number.to_compact_string()
+            }
+        } else if formatted_number.contains('e') && !formatted_number.contains("e-") {
+            formatted_number.replace('e', "e+").to_compact_string()
+        } else {
+            formatted_number.to_compact_string()
+        }
+    }
+}
+
 impl Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.to_f64().fmt(f)
+        self.value.decimal(f)
     }
+}
+
+macro_rules! handle_poisoned {
+    ($self:ident, $op:ident) => {{
+        if $self.poisoned() {
+            return Number::from_f64($self.to_f64().$op());
+        }
+
+        let value = $self.value.clone().$op();
+        Number {
+            value,
+            poison: None,
+        }
+    }};
+
+    ($self:ident, $other:ident, $op:ident) => {{
+        if $self.poisoned() || $other.poisoned() {
+            return Number::from_f64($self.to_f64().$op($other.to_f64()));
+        }
+
+        let value = $self.value.clone().$op($other.value.clone());
+        Number {
+            value,
+            poison: None,
+        }
+    }};
+
+    ($self:ident, $other:ident, $op:ident, fallible) => {{
+        if $self.poisoned() || $other.poisoned() {
+            return Number::from_f64($self.to_f64().$op($other.to_f64()));
+        }
+
+        if let Ok(value) = $self.value.clone().$op($other.value.clone()) {
+            Number {
+                value,
+                poison: None,
+            }
+        } else {
+            Number {
+                value: realistic::Real::zero(),
+                poison: Some($self.to_f64().$op($other.to_f64())),
+            }
+        }
+    }};
 }
 
 impl std::ops::Add for Number {
     type Output = Number;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Number(self.0 + rhs.0)
+        handle_poisoned!(self, rhs, add)
     }
 }
 
@@ -124,7 +321,7 @@ impl std::ops::Sub for Number {
     type Output = Number;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Number(self.0 - rhs.0)
+        handle_poisoned!(self, rhs, sub)
     }
 }
 
@@ -132,7 +329,7 @@ impl std::ops::Mul for Number {
     type Output = Number;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Number(self.0 * rhs.0)
+        handle_poisoned!(self, rhs, mul)
     }
 }
 
@@ -140,7 +337,7 @@ impl std::ops::Div for Number {
     type Output = Number;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Number(self.0 / rhs.0)
+        handle_poisoned!(self, rhs, div, fallible)
     }
 }
 
@@ -148,7 +345,7 @@ impl std::ops::Neg for Number {
     type Output = Number;
 
     fn neg(self) -> Self::Output {
-        Number(-self.0)
+        handle_poisoned!(self, neg)
     }
 }
 

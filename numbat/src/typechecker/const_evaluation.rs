@@ -15,7 +15,7 @@ fn to_rational_exponent(exponent_f64: f64) -> Option<Exponent> {
 pub fn evaluate_const_expr(expr: &typed_ast::Expression) -> Result<Exponent> {
     let name = match expr {
         typed_ast::Expression::Scalar(span, n, _type) => {
-            return Ok(to_rational_exponent(n.to_f64())
+            return Ok(to_rational_exponent(n.clone().to_f64())
                 .ok_or(TypeCheckError::NonRationalExponent(*span))?)
         }
         typed_ast::Expression::UnaryOperator(_, ast::UnaryOperator::Negate, ref expr, _) => {

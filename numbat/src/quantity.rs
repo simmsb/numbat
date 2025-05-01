@@ -50,8 +50,12 @@ impl Quantity {
         self
     }
 
-    pub fn from_scalar(value: f64) -> Quantity {
-        Quantity::new_f64(value, Unit::scalar())
+    pub fn from_scalar(value: Number) -> Quantity {
+        Quantity::new(value, Unit::scalar())
+    }
+
+    pub fn from_scalar_f64(value: f64) -> Quantity {
+        Quantity::new(Number::from_f64(value), Unit::scalar())
     }
 
     pub fn from_unit(unit: Unit) -> Quantity {
@@ -63,7 +67,7 @@ impl Quantity {
     }
 
     pub fn is_zero(&self) -> bool {
-        self.value.to_f64() == 0.0
+        self.value.value.definitely_zero()
     }
 
     pub fn abs(self) -> Self {
@@ -72,12 +76,12 @@ impl Quantity {
 
     pub fn to_base_unit_representation(&self) -> Quantity {
         let (unit, factor) = self.unit.to_base_unit_representation();
-        Quantity::new(self.value * factor, unit)
+        Quantity::new(self.value.clone() * factor, unit)
     }
 
     pub fn convert_to(&self, target_unit: &Unit) -> Result<Quantity> {
-        if &self.unit == target_unit || self.unsafe_value().to_f64().is_zero() {
-            Ok(Quantity::new(self.value, target_unit.clone()))
+        if &self.unit == target_unit || self.unsafe_value().clone().to_f64().is_zero() {
+            Ok(Quantity::new(self.value.clone(), target_unit.clone()))
         } else {
             // Remove common unit factors to reduce unnecessary conversion procedures
             // For example: when converting from km/hour to mile/hour, there is no need
@@ -128,7 +132,7 @@ impl Quantity {
 
             if own_base_unit_representation == target_base_unit_representation {
                 Ok(Quantity::new(
-                    *quantity_base_unit_representation.unsafe_value() / factor,
+                    quantity_base_unit_representation.unsafe_value().clone() / factor,
                     target_unit.clone(),
                 ))
             } else {
@@ -228,7 +232,7 @@ impl Quantity {
 
         simplified_unit.canonicalize();
 
-        Quantity::new(self.value * factor, simplified_unit)
+        Quantity::new(self.value.clone() * factor, simplified_unit)
     }
 
     pub fn as_scalar(&self) -> Result<Number> {
@@ -240,11 +244,12 @@ impl Quantity {
     }
 
     pub fn power(self, exp: Quantity) -> Result<Self> {
-        let exponent_as_scalar = exp.as_scalar()?.to_f64();
-        Ok(Quantity::new_f64(
-            self.value.to_f64().powf(exponent_as_scalar),
+        let exponent_as_scalar = exp.as_scalar()?;
+        Ok(Quantity::new(
+            self.value.pow(exponent_as_scalar.clone()),
             self.unit.power(
-                Rational::from_f64(exponent_as_scalar).ok_or(QuantityError::NonRationalExponent)?,
+                Rational::from_f64(exponent_as_scalar.to_f64())
+                    .ok_or(QuantityError::NonRationalExponent)?,
             ),
         ))
     }
@@ -260,7 +265,7 @@ impl Quantity {
 
 impl From<&Number> for Quantity {
     fn from(n: &Number) -> Self {
-        Quantity::from_scalar(n.to_f64())
+        Quantity::from_scalar(n.clone())
     }
 }
 
@@ -274,7 +279,7 @@ impl std::ops::Add for &Quantity {
             Ok(self.clone())
         } else {
             Ok(Quantity::new(
-                self.value + rhs.convert_to(&self.unit)?.value,
+                self.value.clone() + rhs.convert_to(&self.unit)?.value,
                 self.unit.clone(),
             ))
         }
@@ -291,7 +296,7 @@ impl std::ops::Sub for &Quantity {
             Ok(self.clone())
         } else {
             Ok(Quantity::new(
-                self.value - rhs.convert_to(&self.unit)?.value,
+                self.value.clone() - rhs.convert_to(&self.unit)?.value,
                 self.unit.clone(),
             ))
         }
@@ -355,7 +360,7 @@ impl Quantity {
     /// partial_cmp that encodes whether comparison fails because its arguments have
     /// incompatible units, or because one of them is NaN
     pub(crate) fn partial_cmp_preserve_nan(&self, other: &Self) -> QuantityOrdering {
-        if self.value.to_f64().is_nan() || other.value.to_f64().is_nan() {
+        if self.value.clone().to_f64().is_nan() || other.value.clone().to_f64().is_nan() {
             return QuantityOrdering::NanOperand;
         }
 
@@ -376,7 +381,10 @@ impl Quantity {
     fn pretty_print_with_options(&self, options: Option<FmtFloatConfig>) -> crate::markup::Markup {
         use crate::markup;
 
-        let formatted_number = self.unsafe_value().pretty_print_with_options(options);
+        let formatted_number = self
+            .unsafe_value()
+            .clone()
+            .pretty_print_with_options(options);
 
         let unit_str = format_compact!("{}", self.unit());
 

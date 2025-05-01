@@ -51,7 +51,7 @@ impl BytecodeInterpreter {
     fn compile_expression(&mut self, expr: &Expression) -> Result<()> {
         match expr {
             Expression::Scalar(_span, n, _type) => {
-                let index = self.vm.add_constant(Constant::Scalar(n.to_f64()));
+                let index = self.vm.add_constant(Constant::Scalar(n.clone()));
                 self.vm.add_op1(Op::LoadConstant, index);
             }
             Expression::Identifier(_span, identifier, _type) => {

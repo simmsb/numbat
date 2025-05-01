@@ -1,0 +1,14 @@
+[package]
+name = "realistic"
+description = "Towards an API for the Real Numbers"
+license = "Apache-2.0"
+repository = "https://github.com/tialaramex/realistic/"
+version = "0.8.0"
+edition = "2024"
+
+[dependencies]
+dtoa = "1.0.10"
+num = { version = "0.4.3", features = ["num-bigint"] }
+num-format = { version = "0.4.4", features = ["num-bigint"] }
+pretty_dtoa = "0.3.0"
+ryu_floating_decimal = "0.1.0"

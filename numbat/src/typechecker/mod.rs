@@ -305,18 +305,18 @@ impl TypeChecker {
     ) -> Result<typed_ast::Expression<'a>> {
         Ok(match ast {
             ast::Expression::Scalar(span, n)
-                if n.to_f64().is_zero() || n.to_f64().is_infinite() || n.to_f64().is_nan() =>
+                if n.clone().to_f64().is_zero() || n.clone().to_f64().is_infinite() || n.clone().to_f64().is_nan() =>
             {
                 let polymorphic_zero_type = self.fresh_type_variable();
                 self.add_dtype_constraint(&polymorphic_zero_type).ok();
                 typed_ast::Expression::Scalar(
                     *span,
-                    *n,
+                    n.clone(),
                     TypeScheme::concrete(polymorphic_zero_type),
                 )
             }
             ast::Expression::Scalar(span, n) => {
-                typed_ast::Expression::Scalar(*span, *n, TypeScheme::concrete(Type::scalar()))
+                typed_ast::Expression::Scalar(*span, n.clone(), TypeScheme::concrete(Type::scalar()))
             }
             ast::Expression::Identifier(span, name) => {
                 let type_scheme = self.identifier_type(*span, name)?.clone();

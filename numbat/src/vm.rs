@@ -208,7 +208,7 @@ impl Op {
 
 #[derive(Clone, Debug)]
 pub enum Constant {
-    Scalar(f64),
+    Scalar(Number),
     Unit(Unit),
     Boolean(bool),
     String(CompactString),
@@ -219,7 +219,7 @@ pub enum Constant {
 impl Constant {
     fn to_value(&self) -> Value {
         match self {
-            Constant::Scalar(n) => Value::Quantity(Quantity::from_scalar(*n)),
+            Constant::Scalar(n) => Value::Quantity(Quantity::from_scalar(n.clone())),
             Constant::Unit(u) => Value::Quantity(Quantity::from_unit(u.clone())),
             Constant::Boolean(b) => Value::Boolean(*b),
             Constant::String(s) => Value::String(s.clone()),
@@ -232,7 +232,7 @@ impl Constant {
 impl Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Constant::Scalar(n) => write!(f, "{n}"),
+            Constant::Scalar(n) => write!(f, "{n:#}"),
             Constant::Unit(unit) => write!(f, "{unit}"),
             Constant::Boolean(val) => write!(f, "{val}"),
             Constant::String(val) => write!(f, "\"{val}\""),
@@ -641,7 +641,7 @@ impl Vm {
                     let prefix_idx = self.read_u16();
                     let prefix = self.prefixes[prefix_idx as usize];
                     self.push_quantity(Quantity::new(
-                        *quantity.unsafe_value(),
+                        quantity.unsafe_value().clone(),
                         quantity.unit().clone().with_prefix(prefix),
                     ));
                 }
@@ -667,7 +667,7 @@ impl Vm {
                     self.constants[constant_idx as usize] = Constant::Unit(Unit::new_derived(
                         unit_information.0.to_compact_string(),
                         unit_information.2.canonical_name.clone(),
-                        *conversion_value.unsafe_value(),
+                        conversion_value.unsafe_value().clone(),
                         defining_unit.clone(),
                     ));
                 }
@@ -712,7 +712,7 @@ impl Vm {
 
                     // for time, the base unit is in seconds
                     let base = rhs.to_base_unit_representation();
-                    let seconds_f64 = base.unsafe_value().to_f64();
+                    let seconds_f64 = base.unsafe_value().clone().to_f64();
 
                     let seconds_i64 = seconds_f64
                         .to_i64()
@@ -827,7 +827,7 @@ impl Vm {
                         return Err(Box::new(RuntimeError::FactorialOfNonInteger));
                     }
 
-                    self.push_quantity(Quantity::from_scalar(math::factorial(lhs, order)));
+                    self.push_quantity(Quantity::from_scalar(Number::from_f64(math::factorial(lhs, order))));
                 }
                 Op::JumpIfFalse => {
                     let offset = self.read_u16() as usize;
@@ -964,7 +964,7 @@ impl Vm {
                                     let mut vars = HashMap::new();
                                     vars.insert(
                                         CompactString::const_new("value"),
-                                        q.unsafe_value().to_f64(),
+                                        q.unsafe_value().clone().to_f64(),
                                     );
 
                                     let mut str =

@@ -37,13 +37,13 @@ fn line_plot(mut args: Args) -> Plot {
         .unsafe_as_list()
         .iter()
         .cloned()
-        .map(|e| e.unsafe_as_quantity().unsafe_value().to_f64())
+        .map(|e| e.unsafe_as_quantity().unsafe_value().clone().to_f64())
         .collect::<Vec<_>>();
     let ys = ys
         .unsafe_as_list()
         .iter()
         .cloned()
-        .map(|e| e.unsafe_as_quantity().unsafe_value().to_f64())
+        .map(|e| e.unsafe_as_quantity().unsafe_value().clone().to_f64())
         .collect::<Vec<_>>();
 
     crate::plot::line_plot(xs, ys, &x_label, &y_label)
@@ -66,7 +66,7 @@ fn bar_chart(mut args: Args) -> Plot {
         .unsafe_as_list()
         .iter()
         .cloned()
-        .map(|e| e.unsafe_as_quantity().unsafe_value().to_f64())
+        .map(|e| e.unsafe_as_quantity().unsafe_value().clone().to_f64())
         .collect::<Vec<_>>();
 
     let value_label = format!(

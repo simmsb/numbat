@@ -70,6 +70,21 @@ pub enum RuntimeError {
         "Could not write to history file {0:?}. History will not be saved until this is fixed."
     )]
     HistoryWrite(std::path::PathBuf),
+
+    #[error("Mathmatical error: {0}")]
+    MathError(realistic::Problem),
+}
+
+impl From<realistic::Problem> for RuntimeError {
+    fn from(value: realistic::Problem) -> Self {
+        RuntimeError::MathError(value)
+    }
+}
+
+impl From<realistic::Problem> for Box<RuntimeError> {
+    fn from(value: realistic::Problem) -> Self {
+        Box::new(RuntimeError::MathError(value))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -240,7 +255,7 @@ mod tests {
 
     #[track_caller]
     fn assert_evaluates_to_scalar(input: &str, expected: f64) {
-        assert_evaluates_to(input, Quantity::from_scalar(expected))
+        assert_evaluates_to(input, Quantity::from_scalar(expected.try_into().unwrap()))
     }
 
     #[track_caller]
@@ -299,7 +314,7 @@ mod tests {
 
         assert_evaluates_to(
             "2 meter + 3 meter",
-            Quantity::from_scalar(2.0 + 3.0) * Quantity::from_unit(Unit::meter()),
+            Quantity::from_scalar((2.0 + 3.0).try_into().unwrap()) * Quantity::from_unit(Unit::meter()),
         );
 
         assert_evaluates_to(
@@ -307,7 +322,7 @@ mod tests {
              @aliases(px: short)
              unit pixel : Pixel
              2 * pixel",
-            Quantity::from_scalar(2.0)
+            Quantity::from_scalar(2.0.try_into().unwrap())
                 * Quantity::from_unit(Unit::new_base(
                     CompactString::const_new("pixel"),
                     CanonicalName::new("px", AcceptsPrefix::only_short()),
@@ -317,7 +332,7 @@ mod tests {
         assert_evaluates_to(
             "fn speed(distance: Length, time: Time) -> Velocity = distance / time
              speed(10 * meter, 2 * second)",
-            Quantity::from_scalar(5.0)
+            Quantity::from_scalar(5.0.try_into().unwrap())
                 * (Quantity::from_unit(Unit::meter()) / Quantity::from_unit(Unit::second())),
         );
     }

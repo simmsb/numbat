@@ -1,13 +1,14 @@
 use super::macros::*;
 use super::Args;
 use super::Result;
+use crate::number::Number;
 use crate::quantity::Quantity;
 use crate::value::Value;
 use crate::RuntimeError;
 
 pub fn str_length(mut args: Args) -> Result<Value> {
     let len = string_arg!(args).len();
-    return_scalar!(len as f64)
+    return_scalar!(Number::new((len as u64).into()))
 }
 
 pub fn lowercase(mut args: Args) -> Result<Value> {
@@ -19,8 +20,8 @@ pub fn uppercase(mut args: Args) -> Result<Value> {
 }
 
 pub fn str_slice(mut args: Args) -> Result<Value> {
-    let start = quantity_arg!(args).unsafe_value().to_f64() as usize;
-    let end = quantity_arg!(args).unsafe_value().to_f64() as usize;
+    let start = quantity_arg!(args).unsafe_value().clone().to_f64() as usize;
+    let end = quantity_arg!(args).unsafe_value().clone().to_f64() as usize;
     let input = string_arg!(args);
 
     let output = input.get(start..end).unwrap_or_default();
@@ -29,7 +30,7 @@ pub fn str_slice(mut args: Args) -> Result<Value> {
 }
 
 pub fn chr(mut args: Args) -> Result<Value> {
-    let idx = quantity_arg!(args).unsafe_value().to_f64() as u32;
+    let idx = quantity_arg!(args).unsafe_value().clone().to_f64() as u32;
 
     let output = char::from_u32(idx).unwrap_or('�');
 
@@ -45,5 +46,5 @@ pub fn ord(mut args: Args) -> Result<Value> {
 
     let output = input.chars().next().unwrap() as u32;
 
-    return_scalar!(output as f64)
+    return_scalar!(Number::new(output.into()))
 }

@@ -66,7 +66,7 @@ impl UnitIdentifier {
                 Number::from_f64(1.0),
             ),
             UnitKind::Derived(factor, defining_unit) => {
-                BaseUnitAndFactor(defining_unit.clone(), *factor)
+                BaseUnitAndFactor(defining_unit.clone(), factor.clone())
             }
         }
     }
@@ -92,13 +92,13 @@ impl UnitIdentifier {
                             BaseUnitAndFactor(
                                 base_unit.power(*exponent),
                                 (prefix.factor() * base_unit_factor)
-                                    .pow(&Number::from_f64(exponent.to_f64().unwrap())),
+                                    .pow(Number::from_f64(exponent.to_f64().unwrap())),
                             )
                         },
                     )
                     .product();
 
-                BaseUnitAndFactor(base_unit, *factor * defining_unit_factor)
+                BaseUnitAndFactor(base_unit, factor.clone() * defining_unit_factor)
             }
         }
     }
@@ -285,7 +285,7 @@ impl Unit {
             factor = factor
                 * (prefix.factor() * base_unit.base_unit_and_factor().1)
                     // TODO do we want to use exponent.to_f64?
-                    .pow(&Number::from_f64(exponent.to_f64().unwrap()));
+                    .pow(Number::from_f64(exponent.to_f64().unwrap()));
         }
 
         base_unit_representation.canonicalize();
